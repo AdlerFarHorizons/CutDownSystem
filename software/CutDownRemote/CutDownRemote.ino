@@ -1,45 +1,6 @@
 #include <EEPROM.h>
+#include <MsTimer2.h>
 
-#include <Narcoleptic.h>
-
-/*
- * CutDownRemote
- *
- * Lou Nigra
- * Adler Planetarium - Far Horizons
- *
- * Brendan Batliner and Milan Shah
- * Illinois Mathematics and Science Academy - SIR Program
- * 
- * Controls:
- *  Raw voltage tied to charger ON switch
- *  Programming mode when serial port is connected
- *  Timer activate/de-activate momentary contact switch (no longer used)
- *
- * Indicators:
- *  LED no blink: Charging => Programming mode inhibited.
- *  LED fast blink: Active => Timer is counting down.
- *  LED long Off: Standby => Waiting for programming window to open.
- *  LED single three flashes: Programming mode => Window open for "non-D"
- *                          input to enter programming mode.
- *
- *  The following sequence follows if a non-D character is entered while
- *  the window is open:
- *
- *  LED single six flashes: Parameter prompt: => Ready for parameter entry.
- *  LED three flashes: Confirmation: => Ready for y or n
- *
- * State Machine:
- *  standby -> WAITFORCHARGE
- *  WAITFORCHARGE
- *    -> GETTTY
- *  GETTTY
- *    (timeout) -> SLEEP
- *    (entries) -> active -> SLEEP
- *  SLEEP
- *      standby? => TTY
- *      active?  -> timerUpdate
- */
 // General constants 
 float vRef = 3.3;
 int cutPin = 10;
@@ -119,11 +80,16 @@ void setup()
   sampleNum = 1;
   Serial.begin(9600);
   Serial.flush();
-
+  
+  MsTimer2::set( sleepTime, timesUp );
 }
 
 void loop() // run over and over again
 { 
+  // Every 3 seconds as defined by MSTime2
+  while( active );
+  detachInterrupt( 1 );
+  
   vBatt = vBattRange * analogRead( vBattPin ) / 1024.0;  
   if (!isCharged ) waitForCharge();
   
@@ -155,7 +121,9 @@ void loop() // run over and over again
       eepromAddr = 1;
       EEPROM.write( 0, eepromAddr ); //Initial eeprom address
     }
-  } else {
+  } 
+  
+  else {
     flashLED( ledFlashTime, 1 );
     
     sleepTime = activeSleepTime;
@@ -166,6 +134,7 @@ void loop() // run over and over again
       isCut = true;
       delay(100);
     }
+    
     setCut( tmp );
     if (sampleNum >= sampleCount) {
       float temp = readTemp( vTempPin, 0 );
@@ -197,11 +166,12 @@ void loop() // run over and over again
       eepromAddr += 1;
       sampleNum = 0;
     }
+    
     sampleNum += 1;
   }
+  
   Serial.flush();
   setPwrDown( true );
-  Narcoleptic.delay( sleepTime );
 }
 
 void setPwrDown( boolean state ) {
@@ -214,6 +184,10 @@ void setCut( boolean state ) {
 
 void setCutChg( boolean state ) {
   digitalWrite( cutChgDisablePin, !state );
+}
+
+void timesUp() {
+  active = false;
 }
 
 boolean updateTimer() {
@@ -311,7 +285,9 @@ int getTTY( int pollTimeMs, int windowTimeSecs ) {
     Serial.read();
   }
   Serial.println(""); 
-  Serial.print("Vbat = ");Serial.print(vBatt);Serial.println("V");
+  Serial.print("Vbat = ");
+  Serial.print(vBatt);
+  Serial.println("V");
   Serial.println("Enter D to dump EEProm data, ");
   Serial.println("any other key to set up the timer...");
   Serial.flush();
@@ -333,15 +309,20 @@ int getTTY( int pollTimeMs, int windowTimeSecs ) {
    }
   }
   
-  if ( ( inputByte = Serial.read() ) == 68 ) {
+  if ( ( inputByte = Serial.read() ) == 68 )
+  {
     dumpData();
     return(0);
   } 
-  while ( !done ) {
+  
+  while ( !done ) 
+  {
     // Clear the input buffer
-    while ( Serial.available() > 0 ) {
+    while ( Serial.available() > 0 ) 
+    {
       Serial.read();
     }
+    
     Serial.println("");
     Serial.println("Ready for parameter settings.");
     Serial.println("");
@@ -364,6 +345,7 @@ int getTTY( int pollTimeMs, int windowTimeSecs ) {
     Serial.flush();
     done = true; 
   }
+  
   return(timeDelay);  
 }
 
