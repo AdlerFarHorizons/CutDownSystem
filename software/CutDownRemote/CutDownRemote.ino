@@ -61,16 +61,16 @@ void setup()
   isCut = false;
   setLED( false );
   setPwrDown( true );
-  sensType = 0; //LM60
-  ttyPollTime = 6000; //ms
-  ttyWindowTimeSecs = 10; //secs
-  standbySleepTime = 30000; //ms
-  activeSleepTime = 3000; //ms
-  sampleTime = 60; //ms
+  sensType = 0; // LM60
+  ttyPollTime = 6000; // ms
+  ttyWindowTimeSecs = 10; // secs
+  standbySleepTime = 30000; // ms
+  activeSleepTime = 3000; // ms
+  sampleTime = 60; // ms
   float temp = ( 1000.0 * sampleTime ) / ( 1.0 * activeSleepTime );
   sampleCount = (int)( 0.5 + temp);
-  ledFlashTime = 10; //ms
-  vCharged = 4.1; //When used for testing purposes set this to 0.0
+  ledFlashTime = 10; // ms
+  vCharged = 4.1; // When used for testing purposes set this to 0.0
 
   active = false;
   standby = true;
@@ -90,16 +90,21 @@ void loop() // run over and over again
   while( active );
   detachInterrupt( 1 );
   
-  vBatt = vBattRange * analogRead( vBattPin ) / 1024.0;  
-  if (!isCharged ) waitForCharge();
+  vBatt = vBattRange * analogRead( vBattPin ) / 1024.0;
+  if (!isCharged )
+  {
+    waitForCharge();
+  }
   
   setPwrDown(false);
   //Serial.println(freeRam()); // For testing
   delay(100);
-  if (standby) {
+  if (standby)
+  {
     flashLED( ledFlashTime, 3 );
     cutDelayMins = getTTY( ttyPollTime, ttyWindowTimeSecs );
-    if ( cutDelayMins > 0 ) {
+    if ( cutDelayMins > 0 )
+    {
       standby = false;
       active = true;
       sleepTime = activeSleepTime;
@@ -123,12 +128,14 @@ void loop() // run over and over again
     }
   } 
   
-  else {
+  else
+  {
     flashLED( ledFlashTime, 1 );
     
     sleepTime = activeSleepTime;
     boolean tmp = updateTimer() || cutdownReceived();
-    if ( tmp && chgEnable ) {
+    if ( tmp && chgEnable )
+    {
       chgEnable = false; // This branch only once
       setCutChg( chgEnable ); // Disable cut cap charging if cut is imminent.
       isCut = true;
@@ -136,25 +143,61 @@ void loop() // run over and over again
     }
     
     setCut( tmp );
-    if (sampleNum >= sampleCount) {
+    if (sampleNum >= sampleCount)
+    {
       float temp = readTemp( vTempPin, 0 );
       vBatt = vBattRange * analogRead( vBattPin ) / 1024.0;       
       float vCutCap = vCutCapRange * analogRead( vCutCapPin ) / 1024.0;       
       float vBackupCap = vBackupCapRange * analogRead( vBackupCapPin ) / 1024.0;
-      Serial.print( cutTimerMins );Serial.print( ", ");       
-      Serial.print( temp );Serial.print( ", ");
-      Serial.print( vBatt );Serial.print( ", ");
-      Serial.print( vCutCap );Serial.print( ", ");
+      Serial.print( cutTimerMins );
+      Serial.print( ", ");       
+      Serial.print( temp );
+      Serial.print( ", ");
+      Serial.print( vBatt );
+      Serial.print( ", ");
+      Serial.print( vCutCap );
+      Serial.print( ", ");
       Serial.println( tmp );
       Serial.flush();
       temp = 2.0 * ( temp + 75.0 ); // Shift temperature range
       // Constrain readings to byte values
-      if ( temp > 255 ) temp = 255; if ( temp < 0 ) temp = 0;
-      vBatt /= 0.05; if ( vBatt > 255 ) vBatt = 255; if ( vBatt < 0  ) vBatt = 0;
-      vCutCap /= 0.05;if ( vCutCap > 255 ) vCutCap = 255; if ( vCutCap < 0  ) vCutCap = 0;
+      if ( temp > 255 )
+      {
+        temp = 255;
+      }
+      
+      if ( temp < 0 ) temp = 0;
+      {
+        vBatt /= 0.05;
+      }
+      
+      if ( vBatt > 255 )
+      {
+        vBatt = 255;
+      }
+      
+      if ( vBatt < 0  )
+      {
+        vBatt = 0;
+      }
+      
+      vCutCap /= 0.05;
+      
+      if ( vCutCap > 255 )
+      {
+        vCutCap = 255;
+      }
+      
+      if ( vCutCap < 0  )
+      {
+        vCutCap = 0;
+      }
       
       // If out of eeprom, keep overwriting the last set of samples
-      if ( eepromAddr > maxEepromAddr ) eepromAddr = ( maxEepromAddr - 3 );
+      if ( eepromAddr > maxEepromAddr )
+      {
+        eepromAddr = ( maxEepromAddr - 3 );
+      }
       EEPROM.write( eepromAddr, byte( temp ) );
       eepromAddr +=1;
       EEPROM.write( eepromAddr, byte( vBatt ) );
@@ -174,28 +217,34 @@ void loop() // run over and over again
   setPwrDown( true );
 }
 
-void setPwrDown( boolean state ) {
+void setPwrDown( boolean state )
+{
   digitalWrite( pwrDnPin, state );
 }
 
-void setCut( boolean state ) {
+void setCut( boolean state )
+{
   digitalWrite( cutPin, state );
 }
 
-void setCutChg( boolean state ) {
+void setCutChg( boolean state )
+{
   digitalWrite( cutChgDisablePin, !state );
 }
 
-void timesUp() {
+void timesUp()
+{
   active = false;
 }
 
-boolean updateTimer() {
+boolean updateTimer()
+{
   cutTimerMins += ( ( 1 + timeOhFactor ) * activeSleepTime / 60000.0 );
   return( int(cutTimerMins) == cutDelayMins );
 }
 
-boolean cutdownReceived() {
+boolean cutdownReceived()
+{
   boolean isReceived = false;
   for (int i = 0; i < 10; i++) 
   {
@@ -211,46 +260,56 @@ boolean cutdownReceived() {
     }
     delay(5);
   }
-  
   return isReceived;
 }
 
-void setLED( boolean state ) {
-  if ( state ) {
+void setLED( boolean state )
+{
+  if ( state )
+  {
     digitalWrite( ledPin, HIGH );
-  } else {
+  }
+  
+  else
+  {
     digitalWrite( ledPin, LOW );
   }
 }
 
-void flashLED( int flashTime, int numFlashes ) {
-  for ( int i = 0 ; i < numFlashes ; i++ ) {
+void flashLED( int flashTime, int numFlashes )
+{
+  for ( int i = 0 ; i < numFlashes ; i++ )
+  {
     digitalWrite( ledPin, HIGH );
     delay( flashTime );
     digitalWrite( ledPin, LOW );
     delay(100);
   }
-  
 }
 
-boolean isActive() {
+boolean isActive()
+{
   return( active );
 }
 
-void setActive() {
+void setActive()
+{
   active = true;
 }
 
-boolean isStandby() {
+boolean isStandby()
+{
   return( standby );
 }
 
-boolean getModeSwitch() {
+boolean getModeSwitch()
+{
   // Mode switch is active low
   return( digitalRead( modePin ) == LOW );
 }
 
-float readTemp( int pin, int sensType ) {
+float readTemp( int pin, int sensType )
+{
   // Temperature Sensor constants:
   //   0  LM60
   //   1  MAX6605
@@ -265,13 +324,13 @@ float readTemp( int pin, int sensType ) {
   return( ( mVolts - mVoltsAtRefTemp[sensType] ) / 
             ( mVperDegC[sensType] ) + 
             refTempC[sensType]);
-  
 }
 
 // Starts serial interface and waits for tty activity for a while to start
 //  a dialog to get a new value for the global cutDelayMins cutdown time.
 //  If no input, returns with value unmodified.
-int getTTY( int pollTimeMs, int windowTimeSecs ) {
+int getTTY( int pollTimeMs, int windowTimeSecs )
+{
   int rcvdBytes[4];
   int rcvdBytesCnt;
   int timeDelay;
@@ -281,9 +340,11 @@ int getTTY( int pollTimeMs, int windowTimeSecs ) {
   int timeOutCnt = 0;
 
   // Clear the input buffer
-  while ( Serial.available() > 0 ) {
+  while ( Serial.available() > 0 )
+  {
     Serial.read();
   }
+  
   Serial.println(""); 
   Serial.print("Vbat = ");
   Serial.print(vBatt);
@@ -295,18 +356,22 @@ int getTTY( int pollTimeMs, int windowTimeSecs ) {
   // Wait for an input, but only for windowTimeSecs
   deadTime = 0;
   done = false;
-  while( Serial.available() <= 0 && !done ) {
+  while( Serial.available() <= 0 && !done )
+  {
     delay(pollTimeMs);
     flashLED(ledFlashTime, 3);
     delay(100);
     deadTime += pollTimeMs/ 1000.0;
-    if ( deadTime > windowTimeSecs ) {
+    
+    if ( deadTime > windowTimeSecs )
+    {
       Serial.println( "" );
       Serial.print( "Going back to sleep. Back in " );
-      Serial.print( standbySleepTime / 1000 );Serial.println( " sec" );
+      Serial.print( standbySleepTime / 1000 );
+      Serial.println( " sec" );
       timeDelay = 0;
       done = true;
-   }
+    }
   }
   
   if ( ( inputByte = Serial.read() ) == 68 )
@@ -349,81 +414,120 @@ int getTTY( int pollTimeMs, int windowTimeSecs ) {
   return(timeDelay);  
 }
 
-void dumpData() {
+void dumpData()
+{
   Serial.flush();
   Serial.println( dataValues );
   int lastAddr = int(EEPROM.read(0)) * 4;
   int addr = 1;
-  while ( addr <= lastAddr ) {
-    Serial.print(EEPROM.read(addr));Serial.print(", ");
-    Serial.print(EEPROM.read(addr+1));Serial.print(", ");
-    Serial.print(EEPROM.read(addr+2));Serial.print(", ");
+  
+  while ( addr <= lastAddr )
+  {
+    Serial.print(EEPROM.read(addr));
+    Serial.print(", ");
+    Serial.print(EEPROM.read(addr+1));
+    Serial.print(", ");
+    Serial.print(EEPROM.read(addr+2));
+    Serial.print(", ");
     Serial.println(EEPROM.read(addr+3));
     addr += 4;
   }
+  
   Serial.println("End");
   Serial.flush();
 }
 
-void waitForCharge() {
+void waitForCharge()
+{
   float vCutCap = vCutCapRange * analogRead( vCutCapPin ) / 1024.0;
-  vBatt = vBattRange * analogRead( vBattPin ) / 1024.0;       
-  while ( vCutCap <= vCharged ) {
+  vBatt = vBattRange * analogRead( vBattPin ) / 1024.0;
+ 
+  while ( vCutCap <= vCharged )
+  {
     setPwrDown( false );delay(40);
-    Serial.print("Vbat = ");Serial.print(vBatt);Serial.print("V, ");
-    Serial.print("Vcut = ");Serial.print(vCutCap);
+    Serial.print("Vbat = ");
+    Serial.print(vBatt);
+    Serial.print("V, ");
+    Serial.print("Vcut = ");
+    Serial.print(vCutCap);
     Serial.println("V. Waiting for full charge...");
     Serial.flush();
+    
     setPwrDown( true );
     delay(10000);
     flashLED( ledFlashTime, 1 );
     vCutCap = vCutCap = vCutCapRange * analogRead( vCutCapPin ) / 1024.0; 
     vBatt = vBattRange * analogRead( vBattPin ) / 1024.0;       
   }
+  
   isCharged = true; 
 }
 
 void promptUserForData(float * data, String dataName, String unit)
 {
   Serial.print("Enter " + dataName + " of flight, in " + unit + ":");
-    flashLED( ledFlashTime, 6 );
-    *data = 0;
-    boolean typing = true;
-    while (typing) {
-      while (Serial.available() > 0) {
-        *data = Serial.parseFloat();
-        Serial.println(*data); Serial.flush();
-        if (*data != 0) {
-          Serial.print(*data); Serial.println(" " + unit + " entered as the " + dataName + " ."); Serial.print("Is this correct? (y/n) ");
+  flashLED( ledFlashTime, 6 );
+  *data = 0;
+  boolean typing = true;
+  while (typing)
+  {
+    while (Serial.available() > 0)
+    {
+      *data = Serial.parseFloat();
+      Serial.println(*data);
+      Serial.flush();
+      
+      if (*data != 0)
+      {
+        Serial.print(*data);
+        Serial.println(" " + unit + " entered as the " + dataName + " .");
+        Serial.print("Is this correct? (y/n) ");
+        Serial.flush();
+        
+        flashLED( ledFlashTime, 3 );
+        int response = 0;
+        
+        while (response != 'y' && response != 'n')
+        {
+          response = Serial.read();
+        }
+        
+        Serial.println((char)response);
+        
+        if (response == 'y')
+        {
+          Serial.println("Confirmed.");
+          Serial.print(*data);
+          Serial.println(" " + unit + ".");
+          Serial.println("");
           Serial.flush();
-          flashLED( ledFlashTime, 3 );
-          int response = 0;
-          while (response != 'y' && response != 'n') {
-            response = Serial.read();
-          }
-          Serial.println((char)response);
-          if (response == 'y') {
-            Serial.println("Confirmed.");
-            Serial.print(*data); Serial.println(" " + unit + "."); Serial.println("");
-            Serial.flush();
-            typing = false;
-            while (Serial.available() > 0)
-              Serial.read();
-          }
-          else {
-            Serial.print("Enter " + dataName + " of flight, in " + unit);
-            Serial.flush();
-            while (Serial.available() > 0)
-              Serial.read();
-            *data = 0;
+          typing = false;
+          
+          while (Serial.available() > 0)
+          {
+            Serial.read();
           }
         }
-        else {
-          Serial.println("Please enter a valid number.");
+        else
+        {
+          Serial.print("Enter " + dataName + " of flight, in " + unit);
           Serial.flush();
+          
+          while (Serial.available() > 0)
+          {
+            Serial.read();
+          }
+          
+          *data = 0;
         }
       }
+      else
+      {
+        Serial.println("Please enter a valid number.");
+        Serial.flush();
+      }
     }
+  }
 }
 
 int freeRam() 
@@ -432,6 +536,4 @@ int freeRam()
   int v; 
   return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval); 
 }
-
-  
 
