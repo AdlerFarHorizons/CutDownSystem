@@ -1,87 +1,120 @@
 #include <EEPROM.h>
 #include <MsTimer2.h>
 
-// General constants 
-float vRef = 3.3;
-int cutPin = 10;
-int vTempPin = 5;
-int vBattPin = 4;
-int pwrDnPin = 7;
-int cutChgDisablePin = 8;
-float vBattRange = vRef * 4.092;
-int vCutCapPin = 3;
-float vCutCapRange = vRef * 2.0;
+// Pin assignments
 int vBackupCapPin = 2;
+int vCutCapPin = 3;
+int vBattPin = 4;
+int vTempPin = 5;
+int cutChgDisablePin = 8;
+int cutPin = 10;
+int setSwitchPin = 9;
+int startSwitchPin = 7;
+int LEDPinMode = 6;
+int LEDPinRed = 11;
+int LEDPinGreen = 12;
+int LEDPinTimer = 13;
+// Up switch needed
+// Down switch needed
+
+// Charge Constants
+float vRef = 3.3;
+float vBattRange = vRef * 4.092;
+float vCutCapRange = vRef * 2.0;
 float vBackupCapRange = vRef * 2.0;
-int ledPin = 13;
-int modePin = 9;
-float timeOhFactor = 0.1213; //0.0333; //Empirical with 3 second activeSleepTime
-int maxEepromAddr = 1023; //ATMega328
-String dataValues = "2*(T+75)(C), vB*20(V), vC*20(V), Cut";
 float vBatt;
 
-// Variable declarations;
+// EEPROM Constants
+float timeOhFactor = 0.1213; //0.0333; //Empirical with 3 second activeWaitTime
+int maxEepromAddr = 1023; //ATMega328
+String dataValues = "2*(T+75)(C), vB*20(V), vC*20(V), Cut";
+
+// Cutdown variables
 int cut;
-int cutDelayMins;
+int cutDelayMins; // Time until drop
+boolean isCut;
+
+// Display variables
 int ttyPollTime;
-int ttyWindowTimeSecs;
-int standbySleepTime;
-int activeSleepTime;
-int sleepTime;
+int ttyWindowTimeSecs; // Time display is up
+
+// Wait time variables
+int standbyWaitTime;
+int activeWaitTime;
+int waitTime;
+
+// Sample variables
 int sampleCount;
 int sampleNum;
 int sampleTime;
+
+// Cut timer????
 float cutTimerMins;
+
+// User defined variables
 float maxAlt;
 float maxRadius;
 float center_lat;
 float center_lon;
+int varnum = 1;
+
+// Charge variables
 float vCharged;
 boolean isCharged;
+boolean chgEnable;
+
+// LED variables
 boolean ledState;
 int ledFlashTime;
+
+// Sensor variables
 int dataSampleInterval;
 int sensType;
+
+// Activity variables
 boolean standby;
 boolean active;
-boolean chgEnable;
-boolean isCut;
+
+// Necessary for EEPROM?
 int eepromAddr;
 
 void setup()
 {
   pinMode(cutPin, OUTPUT);
-  pinMode(ledPin, OUTPUT);
-  pinMode(modePin, INPUT_PULLUP );
-  pinMode(pwrDnPin, OUTPUT);
   pinMode(cutChgDisablePin, OUTPUT);
+  pinMode(setSwitchPin, INPUT_PULLUP );
+  pinMode(LEDPinMode, OUTPUT);
+  pinMode(LEDPinTimer, OUTPUT);
+  pinMode(LEDPinRed, OUTPUT);
+  pinMode(LEDPinGreen, OUTPUT);
+  
   chgEnable = true;
   setCutChg( chgEnable );
   setCut( false );
   isCut = false;
   setLED( false );
-  setPwrDown( true );
   sensType = 0; // LM60
   ttyPollTime = 6000; // ms
   ttyWindowTimeSecs = 10; // secs
-  standbySleepTime = 30000; // ms
-  activeSleepTime = 3000; // ms
+  standbyWaitTime = 30000; // ms
+  activeWaitTime = 3000; // ms
   sampleTime = 60; // ms
-  float temp = ( 1000.0 * sampleTime ) / ( 1.0 * activeSleepTime );
+  float temp = ( 1000.0 * sampleTime ) / ( 1.0 * activeWaitTime );
   sampleCount = (int)( 0.5 + temp);
   ledFlashTime = 10; // ms
   vCharged = 4.1; // When used for testing purposes set this to 0.0
 
   active = false;
   standby = true;
-  sleepTime = standbySleepTime;
+  waitTime = standbyWaitTime;
   cutDelayMins = 0;
   cutTimerMins = 0;
   sampleNum = 1;
+  
   Serial.begin(9600);
   Serial.flush();
   
-  MsTimer2::set( sleepTime, timesUp );
+  MsTimer2::set( waitTime, timesUp );
 }
 
 void loop() // run over and over again
@@ -91,23 +124,122 @@ void loop() // run over and over again
   detachInterrupt( 1 );
   
   vBatt = vBattRange * analogRead( vBattPin ) / 1024.0;
+  
+  // If not charged, set LED to Red and wait until charged
   if (!isCharged )
   {
     waitForCharge();
+    digitalWrite(LEDPinRed, HIGH);
+    digitalWrite(LEDPinGreen, LOW);
   }
   
-  setPwrDown(false);
-  //Serial.println(freeRam()); // For testing
+  // If switch is pressed (assuming active HIGH), allow time to be set
+  while (getModeSwitch())
+  {
+    digitalWrite(LEDPinMode, HIGH);
+    
+    /*if (digitalRead(chVarSwitchPin) == HIGH)  // chVarSwitchPin does not yet exist
+    {
+      if(varnum == 5)
+      {
+        varnum = 1;
+      }
+      else
+      {
+        varnum += 1;
+      }
+    }*/
+    
+    if (varnum == 1)
+    {
+      //digitalWrite(LEDTime);  // This LED does not exist yet
+      cutDelayMins = getTTY( ttyPollTime, ttyWindowTimeSecs );
+      /*if (digitalRead(Up) == HIGH)  // Will eventually replace TTY with display output
+      {
+        cutDelayMin += 1;
+      }
+      if (digitalRead(Down) == HIGH)
+      {
+        cutDelayMin -= 1;
+      }*/
+    }
+    if (varnum == 2)
+    {
+      //digitalWrite(LEDAlt);  // This LED does not exist yet
+      /*if (digitalRead(Up) == HIGH)  // Will eventually replace TTY with display output
+      {
+        maxAlt += 1;
+      }
+      if (digitalRead(Down) == HIGH)
+      {
+        maxAlt -= 1;
+      }*/
+    }
+    if (varnum == 3)
+    {
+      //digitalWrite(LEDRad);  // This LED does not exist yet
+      /*if (digitalRead(Up) == HIGH)  // Will eventually replace TTY with display output
+      {
+        maxRad += 1;
+      }
+      if (digitalRead(Down) == HIGH)
+      {
+        maxRad -= 1;
+      }*/
+    }
+    if (varnum == 4)
+    {
+      //digitalWrite(LEDLat);  // This LED does not exist yet
+      /*if (digitalRead(Up) == HIGH)  // Will eventually replace TTY with display output
+      {
+        center_lat += 1;
+      }
+      if (digitalRead(Down) == HIGH)
+      {
+        center_lat -= 1;
+      }*/
+    }
+    if (varnum == 5)
+    {
+      //digitalWrite(LEDLon);  // This LED does not exist yet
+      /*if (digitalRead(Up) == HIGH)  // Will eventually replace TTY with display output
+      {
+        center_lon += 1;
+      }
+      if (digitalRead(Down) == HIGH)
+      {
+        center_lon -= 1;
+      }*/
+    }
+  }
+  
+  digitalWrite(LEDPinMode, LOW);
+  
+  if ( digitalRead(startSwitchPin) == HIGH )
+  {
+    standby = false;
+    active = true;
+    eepromAddr = 1;
+    EEPROM.write( 0, eepromAddr ); //Initial eeprom address
+  }
+  
+  if ( digitalRead(startSwitchPin) == LOW )
+  {
+    standby = true;
+    active = false;
+  }
+  
   delay(100);
   if (standby)
   {
-    flashLED( ledFlashTime, 3 );
+    digitalWrite(LEDPinTimer, LOW);
     cutDelayMins = getTTY( ttyPollTime, ttyWindowTimeSecs );
+    
     if ( cutDelayMins > 0 )
     {
       standby = false;
       active = true;
-      sleepTime = activeSleepTime;
+      waitTime = activeWaitTime;
       Serial.println("Timer is now active.");
       Serial.println("");
       Serial.flush();
@@ -132,7 +264,7 @@ void loop() // run over and over again
   {
     flashLED( ledFlashTime, 1 );
     
-    sleepTime = activeSleepTime;
+    waitTime = activeWaitTime;
     boolean tmp = updateTimer() || cutdownReceived();
     if ( tmp && chgEnable )
     {
@@ -149,6 +281,7 @@ void loop() // run over and over again
       vBatt = vBattRange * analogRead( vBattPin ) / 1024.0;       
       float vCutCap = vCutCapRange * analogRead( vCutCapPin ) / 1024.0;       
       float vBackupCap = vBackupCapRange * analogRead( vBackupCapPin ) / 1024.0;
+      
       Serial.print( cutTimerMins );
       Serial.print( ", ");       
       Serial.print( temp );
@@ -159,6 +292,7 @@ void loop() // run over and over again
       Serial.print( ", ");
       Serial.println( tmp );
       Serial.flush();
+      
       temp = 2.0 * ( temp + 75.0 ); // Shift temperature range
       // Constrain readings to byte values
       if ( temp > 255 )
@@ -214,12 +348,6 @@ void loop() // run over and over again
   }
   
   Serial.flush();
-  setPwrDown( true );
-}
-
-void setPwrDown( boolean state )
-{
-  digitalWrite( pwrDnPin, state );
 }
 
 void setCut( boolean state )
@@ -239,7 +367,7 @@ void timesUp()
 
 boolean updateTimer()
 {
-  cutTimerMins += ( ( 1 + timeOhFactor ) * activeSleepTime / 60000.0 );
+  cutTimerMins += ( ( 1 + timeOhFactor ) * activeWaitTime / 60000.0 );
   return( int(cutTimerMins) == cutDelayMins );
 }
 
@@ -267,12 +395,12 @@ void setLED( boolean state )
 {
   if ( state )
   {
-    digitalWrite( ledPin, HIGH );
+    digitalWrite( LEDPinTimer, HIGH );
   }
   
   else
   {
-    digitalWrite( ledPin, LOW );
+    digitalWrite( LEDPinTimer, LOW );
   }
 }
 
@@ -280,9 +408,9 @@ void flashLED( int flashTime, int numFlashes )
 {
   for ( int i = 0 ; i < numFlashes ; i++ )
   {
-    digitalWrite( ledPin, HIGH );
+    digitalWrite( LEDPinTimer, HIGH );
     delay( flashTime );
-    digitalWrite( ledPin, LOW );
+    digitalWrite( LEDPinTimer, LOW );
     delay(100);
   }
 }
@@ -304,8 +432,8 @@ boolean isStandby()
 
 boolean getModeSwitch()
 {
-  // Mode switch is active low
-  return( digitalRead( modePin ) == LOW );
+  // Assuming set switch is active high
+  return( digitalRead( setSwitchPin ) == HIGH );
 }
 
 float readTemp( int pin, int sensType )
@@ -366,8 +494,8 @@ int getTTY( int pollTimeMs, int windowTimeSecs )
     if ( deadTime > windowTimeSecs )
     {
       Serial.println( "" );
-      Serial.print( "Going back to sleep. Back in " );
-      Serial.print( standbySleepTime / 1000 );
+      Serial.print( "Waiting for " );
+      Serial.print( standbyWaitTime / 1000 );
       Serial.println( " sec" );
       timeDelay = 0;
       done = true;
@@ -444,7 +572,7 @@ void waitForCharge()
  
   while ( vCutCap <= vCharged )
   {
-    setPwrDown( false );delay(40);
+    delay(40);
     Serial.print("Vbat = ");
     Serial.print(vBatt);
     Serial.print("V, ");
@@ -453,14 +581,15 @@ void waitForCharge()
     Serial.println("V. Waiting for full charge...");
     Serial.flush();
     
-    setPwrDown( true );
     delay(10000);
     flashLED( ledFlashTime, 1 );
     vCutCap = vCutCap = vCutCapRange * analogRead( vCutCapPin ) / 1024.0; 
     vBatt = vBattRange * analogRead( vBattPin ) / 1024.0;       
   }
   
-  isCharged = true; 
+  isCharged = true;
+  digitalWrite(LEDPinGreen, HIGH);
+  digitalWrite(LEDPinRed, LOW);
 }
 
 void promptUserForData(float * data, String dataName, String unit)
