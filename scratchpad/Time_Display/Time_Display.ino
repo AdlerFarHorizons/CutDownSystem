@@ -31,7 +31,7 @@ void loop() //should write "1" to display
   digitalWrite(Bin2, B0);
   digitalWrite(Bin3, B0);
   digitalWrite(Bin4, B0);
-  delay(50);
+  delay(5);
   
   digitalWrite(digit1, HIGH);
   digitalWrite(digit2, LOW);
@@ -40,7 +40,7 @@ void loop() //should write "1" to display
  digitalWrite(Bin2, B1);
 digitalWrite(Bin3, B0);
 digitalWrite(Bin4, B0);
-delay(50);
+delay(5);
 
 digitalWrite(digit1, LOW);
 digitalWrite(digit2, HIGH);
@@ -49,7 +49,7 @@ digitalWrite(Bin1, B1);
 digitalWrite(Bin2, B1);
 digitalWrite(Bin3, B0);
 digitalWrite(Bin4, B0);
-delay(50);
+delay(5);
 }
   
   
