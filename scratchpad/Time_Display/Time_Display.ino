@@ -16,8 +16,7 @@ void setup ()
   pinMode(Bin4, OUTPUT);
   pinMode(digit1, OUTPUT);
   pinMode(digit2, OUTPUT);
-  pinMode(digit3, OUTPUT);
-  
+  pinMode(digit3, OUTPUT); 
   
   
 }
@@ -51,5 +50,12 @@ digitalWrite(Bin3, B0);
 digitalWrite(Bin4, B0);
 delay(5);
 }
+
+
+ for(int x=1; x<= 9; x++);
+  digitalWrite(digit1, LOW);
+  digitalWrite(digit2, LOW);
+  digitalWrite(digit3, HIGH);
+  delay(1000);
   
   
