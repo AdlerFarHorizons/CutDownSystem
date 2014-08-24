@@ -1,0 +1,3 @@
+[submodule "CutDownSystem.wiki"]
+	path = CutDownSystem.wiki
+	url = git@github.com:AdlerFarHorizons/CutDownSystem.wiki.git
