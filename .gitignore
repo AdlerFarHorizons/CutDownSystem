@@ -7,3 +7,4 @@ temp/
 tmp/
 cache/
 .hg/
+/.project
