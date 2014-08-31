@@ -5,9 +5,9 @@
 // then allow to drain until same percent below, then resume charging.
 
 // Analog Pin Assignments
-int vCutCapPin = 3;
-int vBattPin = 4;
-int vTempPin = 5;
+int vCutCapPin = A2; // Reads voltage from capacitor
+int vBattPin = A3;
+int vTempPin = A4;
 
 // Digital Pin Assignments
 int cutPin = 2;
@@ -16,23 +16,17 @@ int startSwitchPin = 4;
 int upSwitchPin = 5;
 int downSwitchPin = 6;
 int chVarSwitchPin = 7;
-
-int LEDPinTime = 8;
-int LEDPinBatt = 9;
-int LEDPinCap = 10;
-int LEDPinMode = 11;
-int LEDPinCharge = 12;
-int LEDPinTimer = 13;
+int chargeCap = 8; // Set to HIGH to charge capacitor
 
 // Charge Constants
-float vRef = 3.3;
-float vBattRange = vRef * 4.092;
-float vCutCapRange = vRef * 2.0;
-float vBackupCapRange = vRef * 2.0;
-float vBatt;
+float vRefStop = 4.4;
+float vRefStart = 4.1;
+//float vBattRange = vRef * 4.092;
+//float vCutCapRange = vRef * 2.0;
+//float vBackupCapRange = vRef * 2.0;
 
 // EEPROM Constants
-float timeOhFactor = 0.1213; // 0.0333; // Empirical with 3 second activeWaitTime
+float timeOhFactor = 0.1213; // 0.0333; // Empirical with 3 second waitTime
 int maxEepromAddr = 1023; // ATMega328
 String dataValues = "2*(T+75)(C), vB*20(V), vC*20(V), Cut";
 
@@ -41,9 +35,7 @@ int cutDelayMins; // Time until drop
 boolean isCut; // Line has been cut
 
 // Wait time variables
-int standbyWaitTime;
-int activeWaitTime;
-int waitTime;
+int waitTime = 30000;
 int ledFlashTime;
 
 // Sample variables
@@ -56,6 +48,8 @@ int varnum = 1;
 
 // Charge variables
 float vCharged;
+float vCutCap;
+float vBatt;
 boolean isCharged;
 boolean chgEnable;
 
@@ -64,7 +58,6 @@ int dataSampleInterval;
 int sensType;
 
 // Activity variables
-boolean standby;
 boolean active;
 
 // Necessary for EEPROM
@@ -79,7 +72,9 @@ void setup()
   pinMode(upSwitchPin, INPUT_PULLUP);
   pinMode(downSwitchPin, INPUT_PULLUP);
   pinMode(chVarSwitchPin, INPUT_PULLUP);
+  pinMode(chargeCap, OUTPUT);
   
+  /*
   // LED Setup
   pinMode(LEDPinTime, OUTPUT);
   pinMode(LEDPinBatt, OUTPUT);
@@ -87,23 +82,20 @@ void setup()
   pinMode(LEDPinMode, OUTPUT);
   pinMode(LEDPinTimer, OUTPUT);
   pinMode(LEDPinCharge, OUTPUT);
+  */
   
   chgEnable = true;
   activateCut( false );
   isCut = false;
   setTimerLED( false );
   sensType = 0; // LM60
-  standbyWaitTime = 30000; // ms
-  activeWaitTime = 3000; // ms
   sampleTime = 60; // ms
-  float temp = ( 1000.0 * sampleTime ) / ( 1.0 * activeWaitTime );
+  float temp = ( 1000.0 * sampleTime ) / ( 1.0 * waitTime );
   sampleCount = (int)( 0.5 + temp);
   ledFlashTime = 10; // ms
-  vCharged = 4.1; // When used for testing purposes set this to 0.0
+  vCharged = 4.4; // When used for testing purposes set this to 0.0
 
   active = false;
-  standby = true;
-  waitTime = standbyWaitTime;
   cutDelayMins = 0;
   sampleNum = 1;
   
@@ -119,19 +111,20 @@ void loop()
   while( active );
   detachInterrupt( 1 );
   
-  vBatt = vBattRange * analogRead( vBattPin ) / 1024.0;
+  vBatt = analogRead( vBattPin ) / 1024.0;
+  vCutCap = analogRead( vCutCapPin ) / 1024.0;
   
-  // If not charged, turn off LED and wait till charged
-  if (!isCharged )
+  // If discharging and below voltage reference, start charging
+  if (isCharged & (vCutCap <= vRefStart))
   {
-    digitalWrite(LEDPinCharge, LOW);
+    //digitalWrite(LEDPinCharge, LOW);
     waitForCharge();
   }
   
   // If switch is pressed (assuming active HIGH), allow time to be set
   while (getModeSwitch())
   {
-    digitalWrite(LEDPinMode, HIGH);
+    //digitalWrite(LEDPinMode, HIGH);
     
     // Display Current Timer Value
     Serial.print(cutDelayMins);
@@ -160,9 +153,9 @@ void loop()
   
   if (varnum == 1)
   {
-    digitalWrite(LEDPinTime, HIGH);
-    digitalWrite(LEDPinBatt, LOW);
-    digitalWrite(LEDPinCap, LOW);
+    //digitalWrite(LEDPinTime, HIGH);
+    //digitalWrite(LEDPinBatt, LOW);
+    //digitalWrite(LEDPinCap, LOW);
     
     // Display Time
     Serial.print(cutDelayMins);
@@ -170,9 +163,9 @@ void loop()
   
   if (varnum == 2)
   {
-    digitalWrite(LEDPinTime, LOW);
-    digitalWrite(LEDPinBatt, HIGH);
-    digitalWrite(LEDPinCap, LOW);
+    //digitalWrite(LEDPinTime, LOW);
+    //digitalWrite(LEDPinBatt, HIGH);
+    //digitalWrite(LEDPinCap, LOW);
     
     // Display Percent Charge on Battery
     Serial.print("Batt Charge");
@@ -180,43 +173,23 @@ void loop()
   
   if (varnum == 3)
   {
-    digitalWrite(LEDPinTime, LOW);
-    digitalWrite(LEDPinBatt, LOW);
-    digitalWrite(LEDPinCap, HIGH);
+    //digitalWrite(LEDPinTime, LOW);
+    //digitalWrite(LEDPinBatt, LOW);
+    //digitalWrite(LEDPinCap, HIGH);
     
     // Display Percent Charge on Capacitors
-    Serial.print("Cap Charge");
+    Serial.print("Percent Cap Charge");
   }
   
-  digitalWrite(LEDPinMode, LOW);
+  //digitalWrite(LEDPinMode, LOW);
   
   if ( digitalRead(startSwitchPin) == HIGH )
   {
-    standby = false;
     active = true;
-    eepromAddr = 1;
-    EEPROM.write( 0, eepromAddr ); // Initial eeprom address
-  }
-  
-  if ( digitalRead(startSwitchPin) == LOW )
-  {
-    standby = true;
-    active = false;
-  }
-  
-  delay(100);
-  
-  if (standby)
-  {
-    digitalWrite(LEDPinTimer, LOW);
+    //digitalWrite(LEDPinTimer, HIGH);
     
     if ( cutDelayMins > 0 )
     {
-      standby = false;
-      active = true;
-      digitalWrite(LEDPinTimer, HIGH);
-      waitTime = activeWaitTime;
-      
       Serial.println("Timer is now active.");
       Serial.println("");
       Serial.flush();
@@ -228,28 +201,36 @@ void loop()
       eepromAddr = 1;
       EEPROM.write( 0, eepromAddr ); // Initial eeprom address
     }
-  } 
+    
+    else
+    {
+      active = false;
+    }
+  }
+  
+  if ( digitalRead(startSwitchPin) == LOW )
+  {
+    active = false;
+  }
   
   else
   {
     flashTimerLED( ledFlashTime, 1 );
-    
-    waitTime = activeWaitTime;
     boolean tmp = cutdownReceived();
     
     if ( tmp && chgEnable )
     {
+      activateCut( tmp );
       chgEnable = false; // This branch only once
       isCut = true;
       delay(100);
     }
     
-    activateCut( tmp );
     if (sampleNum >= sampleCount)
     {
       float temp = readTemp( vTempPin, 0 );
-      vBatt = vBattRange * analogRead( vBattPin ) / 1024.0;       
-      float vCutCap = vCutCapRange * analogRead( vCutCapPin ) / 1024.0;
+      vBatt = analogRead( vBattPin ) / 1024.0;       
+      float vCutCap = analogRead( vCutCapPin ) / 1024.0;
       
       Serial.print( cutDelayMins );
       Serial.print( ", ");       
@@ -296,6 +277,7 @@ void loop()
         vCutCap = 0;
       }
       
+      // EEPROM TIMER CODE
       // If out of eeprom, keep overwriting the last set of samples
       if ( eepromAddr > maxEepromAddr )
       {
@@ -317,20 +299,25 @@ void loop()
   }
   
   Serial.flush();
-}
+  
+} // END OF VOID LOOP
 
-// Activate
+// ACTIVATE CUTDOWN
 void activateCut( boolean state )
 {
   digitalWrite( cutPin, state );
 }
 
-// Required for MSTimer2
+
+// STOP TIMER
+// Required for EEPROM timer
 void timesUp()
 {
   active = false;
 }
 
+
+// CUTDOWN CHECK
 // Has the remote cutdown order ('C' byte) been recieved?
 boolean cutdownReceived()
 {
@@ -352,58 +339,60 @@ boolean cutdownReceived()
   return isReceived;
 }
 
-// Method to set Timer LED
+
+// SET TIMER LED
 void setTimerLED( boolean state )
 {
   if ( state )
   {
-    digitalWrite( LEDPinTimer, HIGH );
+    //digitalWrite( LEDPinTimer, HIGH );
   }
   
   else
   {
-    digitalWrite( LEDPinTimer, LOW );
+    //digitalWrite( LEDPinTimer, LOW );
   }
 }
 
-// Makes Timer LED flash when Timer is active
+
+// TIMER LED FLASH
 void flashTimerLED( int flashTime, int numFlashes )
 {
   for ( int i = 0 ; i < numFlashes ; i++ )
   {
-    digitalWrite( LEDPinTimer, HIGH );
+    //digitalWrite( LEDPinTimer, HIGH );
     delay( flashTime );
-    digitalWrite( LEDPinTimer, LOW );
+    //digitalWrite( LEDPinTimer, LOW );
     delay(100);
   }
 }
 
-// Is timer active?
+
+// GET TIMER ACTIVITY
 boolean isActive()
 {
   return( active );
 }
 
-// Timer is now active.
+
+// ACTIVATE TIMER
 void setActive()
 {
   active = true;
 }
 
-// Is timer in standby?
-boolean isStandby()
-{
-  return( standby );
-}
 
-// Is "Set" switch pressed?
+// SET MODE
+// Is "set" switch pressed?
 boolean getModeSwitch()
 {
   // Assuming set switch is active high
   return( digitalRead( setSwitchPin ) == HIGH );
 }
 
-// Read internal temperature
+
+// TEMPERATURE
+// Reading temperature sensor
 float readTemp( int pin, int sensType )
 {
   // Temperature Sensor constants:
@@ -414,41 +403,46 @@ float readTemp( int pin, int sensType )
   int refTempC[] = { 0, 0, 25 };
   float mVperDegC[] = { 6.25, 11.9, 10.0 };
 
-  int reading = analogRead(vTempPin);
-  float mVolts = reading * vRef / 1.024;
+  float mVolts = analogRead(vTempPin);
 
-  return( ( mVolts - mVoltsAtRefTemp[sensType] ) / 
-            ( mVperDegC[sensType] ) + 
-            refTempC[sensType]);
+  return(mVolts);
 }
 
-// If not charged, call this method to wait until fully charged
+
+// HYSTERESIS
+// If not charged, call this method to wait until charged
 void waitForCharge()
 {
-  float vCutCap = vCutCapRange * analogRead( vCutCapPin ) / 1024.0;
-  vBatt = vBattRange * analogRead( vBattPin ) / 1024.0;
+  isCharged = false;
+  digitalWrite(chargeCap, HIGH);
+  vCutCap = analogRead( vCutCapPin ) / 1024.0;
+  vBatt = analogRead( vBattPin ) / 1024.0;
  
-  while ( vCutCap <= vCharged )
+  while ( vCutCap < vRefStop )
   {
     delay(40);
-    Serial.print("Vbat = ");
+    Serial.print("Battery Charge = ");
     Serial.print(vBatt);
     Serial.print("V, ");
-    Serial.print("Vcut = ");
+    Serial.print("Capacitor Charge = ");
     Serial.print(vCutCap);
-    Serial.println("V. Waiting for full charge...");
+    Serial.println("V. Waiting for full capacitor charge...");
     Serial.flush();
     
-    delay(10000);
+    delay(5000);
     flashTimerLED( ledFlashTime, 1 );
-    vCutCap = vCutCap = vCutCapRange * analogRead( vCutCapPin ) / 1024.0; 
-    vBatt = vBattRange * analogRead( vBattPin ) / 1024.0;       
+    
+    vCutCap = analogRead( vCutCapPin ) / 1024.0;
+    vBatt = analogRead( vBattPin ) / 1024.0;
   }
   
   isCharged = true;
-  digitalWrite(LEDPinCharge, HIGH);
+  digitalWrite(chargeCap, LOW);
+  //digitalWrite(LEDPinCharge, HIGH);
 }
 
+
+// TROUBLESHOOTING
 // If code is not working properly, run this to see if too much ram is being used
 int freeRam() 
 {
