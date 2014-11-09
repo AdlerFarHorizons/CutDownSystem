@@ -5,13 +5,15 @@ const int Bin4 = 11;
 int digit1 = 7;
 int digit2 = 6;
 int digit3 = 5;
-int x = 0;
+int x; //the total display
 byte mask1 = 1;
 byte mask2 = 2;
 byte mask3 = 4;
 byte mask4 = 8;
 byte display1 = 0;
 byte display2 = 0;
+byte display3 = 0;
+
 
 
 void setup()
@@ -24,6 +26,9 @@ void setup()
   pinMode(digit1, OUTPUT); // Farthest right
   pinMode(digit2, OUTPUT);
   pinMode(digit3, OUTPUT); // Farthest left
+  int x = 120;
+  
+  
   
   Serial.begin(9600);
 }
@@ -31,7 +36,7 @@ void setup()
 void loop()
 {
   
-  for(int x=0; x<= 99; x++)
+  for(int x=0; x<= 999; x++)
   {
     if (display1 < 9) 
     {
@@ -51,13 +56,65 @@ void loop()
       else
       {
         display2 = 0;
+        if (display3 < 9)
+        {
+          display3++;
+        }
+        else
+        {
+          display3 = 0;
+        }
       }
     }
+    Serial.print(display3);
     Serial.print(display2);
     Serial.println(display1);
     
     // I switched the order (display highest number first). This was causing the counter to display the display2 value before the one it should be.
     // Display is active LOW
+    
+    // First Number
+    digitalWrite(digit1, HIGH);
+    digitalWrite(digit2, HIGH);
+    digitalWrite(digit3, LOW);
+    
+    if (display3 & mask1)
+    {
+      digitalWrite(Bin1, 1);
+    }
+    else
+    {
+      digitalWrite(Bin1, 0);
+    }
+    if (display3 & mask2)
+    {
+      digitalWrite(Bin2, 1);
+    }
+    else
+    {
+      digitalWrite(Bin2, 0);
+    }
+    if (display3 & mask3)
+    {
+      digitalWrite(Bin3, 1);
+    }
+    else
+    {
+      digitalWrite(Bin3, 0);
+    }
+    if (display3 & mask4)
+    {
+      digitalWrite(Bin4, 1);
+    }
+    else
+    {
+      digitalWrite(Bin4, 0);
+    }
+    
+    delay(300);
+    
+   
+   // Second Number
     digitalWrite(digit1, HIGH);
     digitalWrite(digit2, LOW);
     digitalWrite(digit3, HIGH);
@@ -98,9 +155,9 @@ void loop()
       digitalWrite(Bin4, 0);
     }
    
-    delay(1000);
+    delay(300);
     
-    // Second number
+    // Third Number
     digitalWrite(digit1, LOW);
     digitalWrite(digit2, HIGH);
     digitalWrite(digit3, HIGH);
@@ -141,9 +198,8 @@ void loop()
       digitalWrite(Bin4, 0);
     }
    
-    delay(1000);
+    delay(300);
    
-    
     
   } // End of for loop  
 } // End of void loop
