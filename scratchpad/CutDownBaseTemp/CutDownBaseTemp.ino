@@ -95,13 +95,14 @@ void loop() {
     }
     if( isCut ) {
       redLed = false; //  R off
+      grnLed = false; // G off (added 4/17/15)
     }
   }
   if ( cutConfirm ) {
     redLed = !redLed;
     Serial.println( "CUT CONFIRMED!" );
-  }    
-   
+  }  
+     
   if ( !isArmed && !cutConfirm ) {
     isArmed = !digitalRead( armPin );
   }
@@ -119,4 +120,10 @@ void loop() {
   } else {
     delay(1000);
   }
-}
+  
+  if ( !isComm ) {
+    grnLed = false; // G off (added 4/17/15)
+  }
+  
+
+
