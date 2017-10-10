@@ -8,3 +8,5 @@ tmp/
 cache/
 .hg/
 /.project
+desktop.ini
+Thumbs.db
